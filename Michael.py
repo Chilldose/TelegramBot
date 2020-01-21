@@ -10,6 +10,7 @@ import signal
 import re
 from forge.socket_connections import Client_, Server_
 from forge.utilities import parse_args, LogFile, load_yaml
+from forrge.utilities import getuptime, getDiskSpace, getCPUuse, getRAMinfo, getCPUtemperature
 import telepot
 from telepot.loop import MessageLoop
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
@@ -43,7 +44,8 @@ class Michael:
                                                       InlineKeyboardButton(text='Yes',
                                                                            callback_data='{"name": "do_reboot", "wert": "yes"}')],
                                    "Do you really want to restart the computer?", None
-                                   )
+                                   ),
+                                  (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback"),
 
                              ]
 
@@ -119,6 +121,14 @@ class Michael:
         else:
             return True
 
+    def do_statistics_callback(self, chat_ID):
+        """Gathers statistics information about the system and writes it on telegram"""
+        uptime = getuptime
+        temp = getCPUtemperature
+        CPU = getCPUuse
+        RAM = getRAMinfo
+        DISK = getDiskSpace
+
     def handle_text(self, message):
         """This function simply handles all text based messages"""
         content_type, chat_type, ID = telepot.glance(message)
@@ -127,7 +137,14 @@ class Michael:
             for val in self.callback_commands:
                 if val[0].match(message["text"]):
                     keyboard = InlineKeyboardMarkup(inline_keyboard=[val[1]]) if val[1] else None
-                    self._send_telegram_message(ID, val[2], reply_markup=keyboard)
+                    if keyboard:
+                        self._send_telegram_message(ID, val[2], reply_markup=keyboard)
+                    else: # If no buttons are there call the callback function
+                        try:
+                            funct = getattr(self, val[3])
+                            funct(chat_id)# Only one parameter because there is no more information
+                        except Exception as err:
+                            self.log.error("Could not execute function {} Error: {}".format(val[3], err))
                     return
 
             if content_type == "text":
