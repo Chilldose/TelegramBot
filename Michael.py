@@ -37,7 +37,7 @@ class Michael:
         self.Server = None
         self.Client = None
         self.ask_superUser = ["/newuser"] # Command calls, which must be accepted/send by a superuser
-        self.all_user_callbacks = ["/status", "/newuser"] # Commands every user can call
+        self.all_user_callbacks = ["/status", "/newuser", "/help", "/ping"] # Commands every user can call
         self.newUserrequests = [] # Here all new user requests are stored as long as they are not processed
 
 
@@ -46,10 +46,12 @@ class Michael:
                                                                            callback_data='{"name": "do_reboot", "value": "no"}'),
                                                       InlineKeyboardButton(text='Yes',
                                                                            callback_data='{"name": "do_reboot", "value": "yes"}')],
-                                   "Do you really want to restart the computer?", None
-                                   ),
-                                  (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback"),
-                                  (re.compile(r"/newuser"), None, "A new user wants to join the club: ", "do_newuser_request"),
+                                   "Do you really want to restart the computer?", None,
+                                   "Reboots the computer (only LINUX machines, and you have to be an admin) "),
+                                  (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback", "Gives you some statistics about the computer (Only works on LINUX)"),
+                                  (re.compile(r"/newuser"), None, "A new user wants to join the club: ", "do_newuser_request", "Send this message to be added as a valid user."),
+                                  (re.compile(r"/help"), None, "All possible commands:", "do_help", "Shows you all possible commands"),
+                                  (re.compile(r"/ping"), None, "The ping yielded:", "do_ping", "Pings the computer the Bot should connect to")
 
                              ]
 
@@ -97,10 +99,17 @@ class Michael:
         else:
             self.log.warning("No ID passed, no message sent!")
 
-    def _send_message_to_underlings(self, message):
+    def _send_message_to_underlings(self, message, ID=None):
         """Sends a message via tcp"""
+        if isinstance(message, dict):
+            msg = message["text"]
+            from_ID = message["from"]["id"]
+        else:
+            msg = str(message)
+            from_ID = ID
+
         try:
-            response = self.Client.send_request("TelegramBot", {str(message["from"]["id"]):"{}".format(message["text"])})
+            response = self.Client.send_request("TelegramBot", {str(from_ID):"{}".format(msg)})
         except Exception as err:
             self.log.info("Server Error {}".format(err))
             return err
@@ -129,6 +138,21 @@ class Michael:
             return False
         else:
             return True
+
+    def do_ping(self, ID, msg):
+        """Pings the TCP server and waits for a response"""
+        response = self._send_message_to_underlings("PING", ID)
+        if response:
+            self._send_telegram_message(ID, "Server answered and is ready")
+        else:
+            self._send_telegram_message(ID, "Server seems to be offline. A reboot can solve this problem.")
+
+    def do_help(self, ID, msg):
+        """Generates the help text"""
+        text = ""
+        for com in self.callback_commands:
+            text += "{} - {} \n".format(com[0].pattern, com[4])
+        self._send_telegram_message(ID, text)
 
     def do_statistics_callback(self, chat_ID, msg=None):
         """Gathers statistics information about the system and writes it on telegram"""
@@ -170,6 +194,7 @@ class Michael:
 
             if content_type == "text":
                 response = self._send_message_to_underlings(message)
+                response = self._extract_result(response)
                 self._send_telegram_message(ID, "{}".format(response))
 
         elif message["text"].strip() == "/start":
@@ -192,6 +217,10 @@ class Michael:
                                             "to the list of blocked IDs. All further messages will be ignored from this "
                                             "ID.")
 
+
+    def _extract_result(self, response):
+        """Each response must be a dictionary with only one entry {'result': whatever}"""
+        return str(response.get("result", "Error: Non valid response layout transmitted from server."))
 
     def report_to_owner(self, message, send_to=None):
         ID = message['from']['id']
