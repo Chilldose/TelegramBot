@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="371a35d0-e998-4a4e-a99d-eb2a97b18f65" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/dbloech.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Michael.py" beforeDir="false" afterPath="$PROJECT_DIR$/Michael.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/config.yml" afterDir="false" />
     </list>
@@ -19,10 +21,10 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/Michael.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-755">
-              <caret line="220" column="23" selection-start-line="220" selection-start-column="8" selection-end-line="220" selection-end-column="23" />
+            <state relative-caret-position="208">
+              <caret line="118" column="23" lean-forward="true" selection-start-line="112" selection-end-line="118" selection-end-column="23" />
               <folding>
-                <element signature="e#253#279#0" expanded="true" />
+                <element signature="e#253#285#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -31,7 +33,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/forge/utilities.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="267">
+            <state relative-caret-position="2060">
               <caret line="106" column="25" selection-start-line="102" selection-start-column="4" selection-end-line="106" selection-end-column="25" />
               <folding>
                 <element signature="e#0#35#0" expanded="true" />
@@ -57,6 +59,9 @@
       <find>self.ask_superUser</find>
       <find>msg</find>
       <find>_send_message_to_underlings</find>
+      <find>send</find>
+      <find>admin</find>
+      <find>added</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -71,10 +76,10 @@
     </option>
   </component>
   <component name="ProjectFrameBounds" extendedState="7">
-    <option name="x" value="-1907" />
-    <option name="y" value="111" />
-    <option name="width" value="3863" />
-    <option name="height" value="1103" />
+    <option name="x" value="-1930" />
+    <option name="y" value="-10" />
+    <option name="width" value="1940" />
+    <option name="height" value="1050" />
   </component>
   <component name="ProjectId" id="1WhM3LwBNq71DEL7Ix8nJX0VSeV" />
   <component name="ProjectView">
@@ -212,25 +217,24 @@
       <option name="presentableId" value="Default" />
       <updated>1579597172481</updated>
       <workItem from="1579597207267" duration="15499000" />
-      <workItem from="1579683057827" duration="18193000" />
+      <workItem from="1579683057827" duration="18203000" />
+      <workItem from="1579767318142" duration="13017000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="18193000" />
+    <option name="totallyTimeSpent" value="31220000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-7" y="-7" width="1550" height="838" extended-state="7" />
+    <frame x="-1927" y="-7" width="1550" height="838" extended-state="7" />
     <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" weight="0.1769437" />
       <window_info id="Favorites" order="1" side_tool="true" />
-      <window_info id="Structure" order="2" visible="true" weight="0.25" />
-      <window_info anchor="bottom" id="Docker" show_stripe_button="false" />
-      <window_info anchor="bottom" id="Database Changes" />
+      <window_info active="true" id="Structure" order="2" visible="true" weight="0.2533512" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.35643566" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.5586987" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.35785007" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -239,11 +243,13 @@
       <window_info anchor="bottom" id="Event Log" order="8" side_tool="true" />
       <window_info anchor="bottom" id="Version Control" order="9" />
       <window_info anchor="bottom" id="Python Console" order="10" />
-      <window_info anchor="right" id="Database" />
-      <window_info anchor="right" id="SciView" />
+      <window_info anchor="bottom" id="Docker" order="11" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Database Changes" order="12" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="right" id="Database" order="3" />
+      <window_info anchor="right" id="SciView" order="4" />
     </layout>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -308,7 +314,7 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/TelegramBot$utilities.coverage" NAME="utilities Coverage Results" MODIFIED="1579683259006" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/forge" />
-    <SUITE FILE_PATH="coverage/TelegramBot$Michael.coverage" NAME="Michael Coverage Results" MODIFIED="1579705425041" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/TelegramBot$Michael.coverage" NAME="Michael Coverage Results" MODIFIED="1579783700979" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="debuggerHistoryManager">
     <expressions id="evaluateCodeFragment">
@@ -333,47 +339,47 @@ DISK = getDiskSpace()</expression-string>
     </expressions>
     <expressions id="evaluateExpression">
       <expression>
-        <expression-string>{str(from_ID):&quot;{}&quot;.format(msg)}</expression-string>
+        <expression-string>self.bot.sendPhoto(ID, open(message, 'rb'))</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>{str(message[&quot;from&quot;][&quot;id&quot;]):&quot;{}&quot;.format(msg)}</expression-string>
+        <expression-string>dir(self.bot)</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>self.config_path</expression-string>
+        <expression-string>self.bot.send_photo(ID, open(message, 'rb'))</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>self.config</expression-string>
+        <expression-string>os.path.isfile(os.path.normpath(message))</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>self.config[&quot;Users&quot;]</expression-string>
+        <expression-string>message = C:\Users\dbloech\PycharmProjects\Doktorat\QTC-Software\UniDAQ\COMET\misc_plugins\__temp__\IV_plot.jpg</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>int(re.findall(r&quot;ID:\s*(\w*)&quot;, query[&quot;message&quot;][&quot;text&quot;])[0])</expression-string>
+        <expression-string>message</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>re.findall(r&quot;ID:\s*(\w*)&quot;, query[&quot;message&quot;][&quot;text&quot;])[0]</expression-string>
+        <expression-string>os.path.isfile(message)</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>re.findall(r&quot;ID:\s*(\w*)&quot;, query[&quot;message&quot;][&quot;text&quot;])</expression-string>
+        <expression-string>response</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
       <expression>
-        <expression-string>query[&quot;message&quot;][&quot;text&quot;]</expression-string>
+        <expression-string>response[&quot;result&quot;]</expression-string>
         <language-id>Python</language-id>
         <evaluation-mode>EXPRESSION</evaluation-mode>
       </expression>
@@ -394,16 +400,9 @@ DISK = getDiskSpace()</expression-string>
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/Anaconda3/envs/COMET/Lib/site-packages/telepot/helper.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="133">
-          <caret line="1040" selection-start-line="1040" selection-end-line="1040" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/forge/utilities.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="267">
+        <state relative-caret-position="2060">
           <caret line="106" column="25" selection-start-line="102" selection-start-column="4" selection-end-line="106" selection-end-column="25" />
           <folding>
             <element signature="e#0#35#0" expanded="true" />
@@ -411,12 +410,26 @@ DISK = getDiskSpace()</expression-string>
         </state>
       </provider>
     </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/envs/COMET/Lib/site-packages/telepot/helper.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="1040" selection-start-line="1040" selection-end-line="1040" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/envs/COMET/Lib/threading.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="143">
+          <caret line="869" selection-start-line="869" selection-end-line="869" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/Michael.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-755">
-          <caret line="220" column="23" selection-start-line="220" selection-start-column="8" selection-end-line="220" selection-end-column="23" />
+        <state relative-caret-position="208">
+          <caret line="118" column="23" lean-forward="true" selection-start-line="112" selection-end-line="118" selection-end-column="23" />
           <folding>
-            <element signature="e#253#279#0" expanded="true" />
+            <element signature="e#253#285#0" expanded="true" />
           </folding>
         </state>
       </provider>

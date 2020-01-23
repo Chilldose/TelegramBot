@@ -13,6 +13,7 @@ from forge.utilities import getuptime, getDiskSpace, getCPUuse, getRAMinfo, getC
 import telepot
 from telepot.loop import MessageLoop
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
+from threading import Thread
 
 
 class Michael:
@@ -39,6 +40,7 @@ class Michael:
         self.ask_superUser = ["/newuser"] # Command calls, which must be accepted/send by a superuser
         self.all_user_callbacks = ["/status", "/newuser", "/help", "/ping"] # Commands every user can call
         self.newUserrequests = [] # Here all new user requests are stored as long as they are not processed
+        self.message_types = ["ID", "PLOT"]
 
 
         #(regex, keyboard, Message, function to call)
@@ -169,7 +171,10 @@ class Michael:
         """This function simply handles all text based messages"""
         content_type, chat_type, ID = telepot.glance(message)
         if self.check_user_ID(message) or message["text"].strip() == "/newuser": # Either you know him or the first message is newuser command
+            if content_type != "text":
+                self._send_telegram_message(ID, "Sorry, I do not understand {}. I can only cope with text messages".format(content_type))
             # Check if it is a command
+            #------------------------------------------------------------------------------------------------------
             for val in self.callback_commands:
                 # Handle Callbacks, only proceed if you are a superuser or the callback is for all users
                 if val[0].match(message["text"]): # Check if callback
@@ -191,12 +196,23 @@ class Michael:
                         return
                     else:
                         self.report_to_owner(message)
+            #------------------------------------------------------------------------------------------------------
 
+            # If its a message to be send to the client
+            #------------------------------------------------------------------------------------------------------
             if content_type == "text":
                 response = self._send_message_to_underlings(message)
-                response = self._extract_result(response)
-                self._send_telegram_message(ID, "{}".format(response))
+                if not response:
+                    self.log.error("Server did not answer")
+                    response = {"result": "The server seems to be offline..."}
+                x = Thread(target=self._process_message, args=(self._extract_result(response),ID))
+                x.start()
 
+
+
+            # ------------------------------------------------------------------------------------------------------
+
+        # If its the start message, just report this to the admin
         elif message["text"].strip() == "/start":
             ID = message['from']['id']
             name = message['from'].get('first_name', "None")
@@ -209,6 +225,7 @@ class Michael:
                                                  "First Name: {} \n" \
                                                  "Last Name: {} \n".format(ID, username, name, lastname))
 
+        # If any other message is send and the user is not valid
         else: # If the ID is not recognised
             if ID not in self.blocked_user_ID:
                 self.blocked_user_ID.append(ID)
@@ -217,10 +234,77 @@ class Michael:
                                             "to the list of blocked IDs. All further messages will be ignored from this "
                                             "ID.")
 
+    def _process_message(self, response, ID):
+        """
+        Processes the message obtained by the server. This function should run in a thread. Since data from the
+        may not be ready at run time.
+        :param response: The response from the server
+        :param ID: The ID the query was send from
+        :param type: The type of message
+        :return: None
+        """
+        self.log.info("Processing message: {} for userID: {}".format(response, ID))
+
+        if isinstance(response, str):
+            self._send_telegram_message(ID, response)
+            return
+
+        # If the response is a dict
+        elif isinstance(response, dict):
+            for key, it in response.items():
+                if key.strip().upper() in self.message_types:
+                    self._process_special_message(it, ID, type=key)
+
+
+        # If it is any other type of message try to convert to str and send
+        else:
+            try:
+                self._send_telegram_message(ID, str(response))
+            except:
+                self.log.critical("Could not convert response to str for ID: {}".format(ID))
+                self._send_telegram_message(ID, "The response for you query returned a non str convertable "
+                                                "object. Could not sent response!")
+
+    def _process_special_message(self, message, ID, type):
+        """Processes special type messages like Plot messages"""
+        admin = self.config["SuperUser"][0]
+        # If a picture should be send to the user
+        if type.strip().upper() == "PLOT":
+            # The value must be a string! And it must be a valid path.
+            if isinstance(message, str):
+                if os.path.isfile(os.path.normpath(message)):
+                    self.bot.sendPhoto(ID, open(message, 'rb'))
+                else:
+                    self.log.critical("Path {} does not exist or is not accessible. No message sent to {}".format(message, ID))
+                    self._send_telegram_message(ID, "Path {} does not exist or is not accessible.".format(message, ID))
+        # ID means the subdict is a list
+
+        elif type.strip().upper() == "ID":
+
+            if not isinstance(message, dict):
+                self.log.error("'ID' response data error. Data was not a dict! Message: {}".format(message))
+                return
+
+            for subID, subitem in message.items():
+                try:
+                    subID = int(subID)
+                except:
+                    self.log.critical("Could not convert ID to int conform ID")
+                    continue
+
+                if subID in self.config["Users"]: # Only send message to a valid user.
+                    self._process_message(subitem, subID) # Reprocess this subitem but with another ID, to whom it should be send
+
+                else:
+                    self.log.critical("User {} was not recognised as valid user!")
+                    self._send_telegram_message(admin, "Bad user ID encountered in response "
+                                                                             "ID: {} not recognised!")
 
     def _extract_result(self, response):
-        """Each response must be a dictionary with only one entry {'result': whatever}"""
-        return str(response.get("result", "Error: Non valid response layout transmitted from server."))
+        """Each response must be a dictionary with only one entry {'result': whatever}
+        Whatever can again be whatever you want --> Dict, str, list etc. This should prevent data mismatch
+        And I know this isnt the best way to go. TODO: Make this better"""
+        return response.get("result", "Error: Non valid response layout transmitted from server.")
 
     def report_to_owner(self, message, send_to=None):
         ID = message['from']['id']
@@ -272,7 +356,7 @@ class Michael:
                                                                  "First Name: {} \n" \
                                                                  "Last Name: {}".format(ID, username, name, lastname)
         self._send_telegram_message(SuperUser, text, reply_markup=keyboard)
-        self._send_telegram_message(ID, "Your request has been send to an admin.")
+        self._send_telegram_message(ID, "Your request has been sent to an admin.")
 
     def do_newuser_callback(self, query_id, chat_id, value, query):
             """Does or does not add the user"""
@@ -284,13 +368,13 @@ class Michael:
                     del self.newUserrequests[i]
 
             if value.lower() == 'no':
-                self._send_telegram_message(chat_id, "User not added to the family")
+                self._send_telegram_message(chat_id, "User {} not added to the family".format(newID))
                 self._send_telegram_message(newID, "Your request has been declined by the admin")
             else:
                 self.config["Users"].append(newID)
                 with open(self.config_path, 'w') as outfile:
                     yaml.dump(self.config, outfile, default_flow_style=False)
-                self._send_telegram_message(chat_id, "User added to the family")
+                self._send_telegram_message(chat_id, "User {} added to the family".format(newID))
                 self._send_telegram_message(newID, "Welcome to the family. Your request has been approved by an admin.")
 
     def handle_callback(self, query):
