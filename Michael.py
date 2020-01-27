@@ -68,6 +68,7 @@ class Michael:
     def run(self):
         config_socket = self.config["Socket_connection"]
         self.Server = Server_(HOST=config_socket["Host"]["IP"], PORT=config_socket["Host"]["Port"])
+        self.Server.responder = self.handle_server_requests
         self.Server.start()  # Starts the Server thread
         self.Client = Client_(HOST=config_socket["Client"]["IP"], PORT=config_socket["Client"]["Port"])
         MessageLoop(self.bot, {"chat": self.handle_text,
@@ -78,6 +79,21 @@ class Michael:
                 time.sleep(5)
             except KeyboardInterrupt:
                 self.quit = True
+
+    def handle_server_requests(self, action, value):
+        """handles all request which came from a client"""
+        self.log.info("Got server message {}: {}".format(action, value))
+        if action == "TelegramBot": # Only accept request for the telegram bot
+            # Each value must contain as key the ID to whom I should send something
+            if isinstance(value, dict):
+                self._process_message({"ID": value}, ID=None) # Never do that with the ID!!! Only if you know what you are doing!!!
+            else:
+                self.log.critical("Client request was not a dictionary. Type: {}".format(type(value)))
+                return "Request value must be a dictionary with keys beeing the ID to send to."
+        else:
+            self.log.critical("Got a message which was not for me! {}: {}".format(action, value))
+            return "Wrong message action header for TelegramBot"
+
 
     def load_config(self):
         """Loads the config file either from args or passed config file. Args are more important!"""
