@@ -414,7 +414,8 @@ class Michael:
 
 
 if __name__ == "__main__":
-    bot = Michael("config.yml")
+    path = os.path.dirname(os.path.realpath(__file__))
+    bot = Michael(os.path.join(path, "config.yml"))
     bot.run()
 
 
