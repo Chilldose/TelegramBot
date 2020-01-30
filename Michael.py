@@ -388,8 +388,14 @@ class Michael:
                 self._send_telegram_message(newID, "Your request has been declined by the admin")
             else:
                 self.config["Users"].append(newID)
-                with open(self.config_path, 'w') as outfile:
-                    yaml.dump(self.config, outfile, default_flow_style=False)
+                self.log.info("Try adding user to config file and write to file...")
+                try:
+                    with open(self.config_path, 'w') as outfile:
+                        yaml.dump(self.config, outfile, default_flow_style=False)
+                except Exception as err:
+                    self.log.warning("Could not save config to file, user not permanently added. Error: {}".format(err))
+                    self._send_telegram_message(chat_id, "Could not save config to file, user not permanently added")
+
                 self._send_telegram_message(chat_id, "User {} added to the family".format(newID))
                 self._send_telegram_message(newID, "Welcome to the family. Your request has been approved by an admin.")
 
