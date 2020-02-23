@@ -100,8 +100,8 @@ def getuptime():
     return time.time() - psutil.boot_time()
 
 if __name__ == "__main__":
-    uptime = getuptime
-    temp = getCPUtemperature
-    CPU = getCPUuse
-    RAM = getRAMinfo
-    DISK = getDiskSpace
+    uptime = getuptime()/3600
+    temp = getCPUtemperature()
+    CPU = getCPUuse()
+    RAM = getRAMinfo()
+    DISK = getDiskSpace()
