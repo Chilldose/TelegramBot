@@ -68,6 +68,7 @@ class Michael:
     def run(self):
         config_socket = self.config["Socket_connection"]
         self.Server = Server_(HOST=config_socket["Host"]["IP"], PORT=config_socket["Host"]["Port"])
+        self.Server.responder = self.handle_server_requests
         self.Server.start()  # Starts the Server thread
         self.Client = Client_(HOST=config_socket["Client"]["IP"], PORT=config_socket["Client"]["Port"])
         MessageLoop(self.bot, {"chat": self.handle_text,
@@ -78,6 +79,21 @@ class Michael:
                 time.sleep(5)
             except KeyboardInterrupt:
                 self.quit = True
+
+    def handle_server_requests(self, action, value):
+        """handles all request which came from a client"""
+        self.log.info("Got server message {}: {}".format(action, value))
+        if action == "TelegramBot": # Only accept request for the telegram bot
+            # Each value must contain as key the ID to whom I should send something
+            if isinstance(value, dict):
+                self._process_message({"ID": value}, ID=None) # Never do that with the ID!!! Only if you know what you are doing!!!
+            else:
+                self.log.critical("Client request was not a dictionary. Type: {}".format(type(value)))
+                return "Request value must be a dictionary with keys beeing the ID to send to."
+        else:
+            self.log.critical("Got a message which was not for me! {}: {}".format(action, value))
+            return "Wrong message action header for TelegramBot"
+
 
     def load_config(self):
         """Loads the config file either from args or passed config file. Args are more important!"""
@@ -372,8 +388,14 @@ class Michael:
                 self._send_telegram_message(newID, "Your request has been declined by the admin")
             else:
                 self.config["Users"].append(newID)
-                with open(self.config_path, 'w') as outfile:
-                    yaml.dump(self.config, outfile, default_flow_style=False)
+                self.log.info("Try adding user to config file and write to file...")
+                try:
+                    with open(self.config_path, 'w') as outfile:
+                        yaml.dump(self.config, outfile, default_flow_style=False)
+                except Exception as err:
+                    self.log.warning("Could not save config to file, user not permanently added. Error: {}".format(err))
+                    self._send_telegram_message(chat_id, "Could not save config to file, user not permanently added")
+
                 self._send_telegram_message(chat_id, "User {} added to the family".format(newID))
                 self._send_telegram_message(newID, "Welcome to the family. Your request has been approved by an admin.")
 
@@ -398,7 +420,8 @@ class Michael:
 
 
 if __name__ == "__main__":
-    bot = Michael("config.yml")
+    path = os.path.dirname(os.path.realpath(__file__))
+    bot = Michael(os.path.join(path, "config.yml"))
     bot.run()
 
 
