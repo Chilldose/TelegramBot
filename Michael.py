@@ -327,23 +327,28 @@ class Michael:
             # callback_dict: keys= text for button,
             # example: {"info": "A message", "keyboard": {"Chill": Switch Chill, "SuperChill": Switch SuperChill}, "arrangement": ["Chill", "SuperChill"]}
             try:
-                keyboard = self.__gen_keyboard(message.get("keyboard", {}), message.get("arrangement", {}))
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[keyboard])
-                self._send_telegram_message(ID, message["info"], reply_markup=keyboard)
+                keyboard = self.gen_keyboard(message.get("keyboard", {}), message.get("arrangement", {}))
+                try: # Todo: this is not very pretty and pythonic. Error if multiline buttons or not occures
+                    key = InlineKeyboardMarkup(inline_keyboard=keyboard)
+                    self._send_telegram_message(ID, message["info"], reply_markup=key) # For multiline buttons
+                except:
+                    key = InlineKeyboardMarkup(inline_keyboard=[keyboard])
+                    self._send_telegram_message(ID, message["info"], reply_markup=key) # For single line buttons
+
 
             except Exception as err:
                 self.log.error("Could not generate Keyboard due to an error: {}".format(err))
 
 
-    def __gen_keyboard(self, keyboard_dict, arrangement):
+    def gen_keyboard(self, keyboard_dict, arrangement):
         """Generates a keyboard and returns the final keyboardobject list"""
         keyboard = []
         for arr in arrangement:
             subkey = None
             if isinstance(arr, list) or isinstance(arr, tuple):
-                subkey = self.__gen_keyboard(keyboard_dict, arr)
+                subkey = self.gen_keyboard(keyboard_dict, arr)
             elif isinstance(arr, str):
-                subkey = InlineKeyboardButton(text=arr, callback_data='{"name": "do_report_back", "value": {}}'.format(keyboard_dict[arr]))
+                subkey = InlineKeyboardButton(text=arr, callback_data='{'+'"name": "do_report_back", "value": "{}"'.format(keyboard_dict[arr]) + '}')
 
             if subkey:
                 keyboard.append(subkey)
@@ -439,7 +444,9 @@ class Michael:
     def do_report_back_callback(self, query_id, chat_id, value, query):
         """Reports the custom keyboard markup response to the client"""
         self.bot.answerCallbackQuery(query_id)
-        self._send_message_to_underlings(value, chat_id)
+        response = self._send_message_to_underlings(value, chat_id)
+        if response:
+            return self._extract_result(response)
 
     def handle_callback(self, query):
         """Handles callbacks from telegram"""
@@ -454,7 +461,9 @@ class Michael:
             func_name = "{}_callback".format(cb_info['name'])
             func = getattr(self,func_name)
             # Funktion aufrufen
-            func(query_id, chat_id, cb_info['value'], query)
+            response = func(query_id, chat_id, cb_info['value'], query)
+            if response:
+                self._process_message(response, chat_id)
         else:
             self.log.critical("Unauthorized person tried to make a callback. ID: {}".format(query_id))
             for superU in self.config["SuperUser"]:
