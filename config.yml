@@ -1,16 +1,13 @@
----
-    token: ""
-    SuperUser: 
-        - 
-    Users: 
-        - 
-        - 
-        
-    Socket_connection: # Config for the socket connection, for data transfer between processes
-        Host:
-          IP: 127.0.0.4
-          Port: 65432
-
-        Client:
-          IP: 127.0.0.2
-          Port: 65432
+Socket_connection:
+  Client:
+    IP: 127.0.0.2
+    Port: 65432
+  Host:
+    IP: 127.0.0.4
+    Port: 65432
+SuperUser:
+- 260848510
+Users:
+- 260848510
+- 260848510
+token: 1072116012:AAFeS8-A9TJBXAlfceqI_gLSRR4DT2ngBV4
