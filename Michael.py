@@ -385,8 +385,8 @@ class Michael:
         else:
             self._send_telegram_message(chat_id, "Reboot initiated")
             try:
-                os.system("sudo /sbin/reboot &")
-                os.kill(os.getpid(), signal.SIGINT)
+                os.system("sudo /sbin/reboot -n&")
+                #os.kill(os.getpid(), signal.SIGINT)
             except:
                 self._send_telegram_message(chat_id, "Reboot failed. Only works on LINUX machines")
 
