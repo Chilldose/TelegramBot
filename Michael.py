@@ -40,10 +40,10 @@ class Michael:
         self.ask_superUser = ["/newuser"] # Command calls, which must be accepted/send by a superuser
         self.all_user_callbacks = ["/status", "/newuser", "/help", "/ping"] # Commands every user can call
         self.newUserrequests = [] # Here all new user requests are stored as long as they are not processed
-        self.message_types = ["ID", "PLOT"]
+        self.message_types = ["ID", "PLOT", "CALLBACK"]
 
 
-        #(regex, keyboard, Message, function to call)
+        #(regex, keyboard, Message, function to call, helptext)
         self.callback_commands = [(re.compile(r"/reboot"), [InlineKeyboardButton(text='No',
                                                                            callback_data='{"name": "do_reboot", "value": "no"}'),
                                                       InlineKeyboardButton(text='Yes',
@@ -261,15 +261,20 @@ class Michael:
         """
         self.log.info("Processing message: {} for userID: {}".format(response, ID))
 
-        if isinstance(response, str):
+        if isinstance(response, str): # Handle str messages
             self._send_telegram_message(ID, response)
             return
 
         # If the response is a dict
         elif isinstance(response, dict):
+            message_processes = False
             for key, it in response.items():
                 if key.strip().upper() in self.message_types:
+                    message_processes = True
                     self._process_special_message(it, ID, type=key)
+
+            if not message_processes:
+                self.log.critical("Could not process message: {}. Message type was not recognized".format(response))
 
 
         # If it is any other type of message try to convert to str and send
@@ -284,6 +289,8 @@ class Michael:
     def _process_special_message(self, message, ID, type):
         """Processes special type messages like Plot messages"""
         admin = self.config["SuperUser"][0]
+
+
         # If a picture should be send to the user
         if type.strip().upper() == "PLOT":
             # The value must be a string! And it must be a valid path.
@@ -293,8 +300,8 @@ class Michael:
                 else:
                     self.log.critical("Path {} does not exist or is not accessible. No message sent to {}".format(message, ID))
                     self._send_telegram_message(ID, "Path {} does not exist or is not accessible.".format(message, ID))
-        # ID means the subdict is a list
 
+        # ID means the subdict is a list
         elif type.strip().upper() == "ID":
 
             if not isinstance(message, dict):
@@ -315,6 +322,36 @@ class Michael:
                     self.log.critical("User {} was not recognised as valid user!")
                     self._send_telegram_message(admin, "Bad user ID encountered in response "
                                                                              "ID: {} not recognised!")
+        # Handles callback messages with keyboard things
+        elif type.strip().upper() == "CALLBACK":
+            # callback_dict: keys= text for button,
+            # example: {"info": "A message", "keyboard": {"Chill": Switch Chill, "SuperChill": Switch SuperChill}, "arrangement": ["Chill", "SuperChill"]}
+            try:
+                keyboard = self.__gen_keyboard(message.get("keyboard", {}), message.get("arrangement", {}))
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[keyboard])
+                self._send_telegram_message(ID, message["info"], reply_markup=keyboard)
+
+            except Exception as err:
+                self.log.error("Could not generate Keyboard due to an error: {}".format(err))
+
+
+    def __gen_keyboard(self, keyboard_dict, arrangement):
+        """Generates a keyboard and returns the final keyboardobject list"""
+        keyboard = []
+        for arr in arrangement:
+            subkey = None
+            if isinstance(arr, list) or isinstance(arr, tuple):
+                subkey = self.__gen_keyboard(keyboard_dict, arr)
+            elif isinstance(arr, str):
+                subkey = InlineKeyboardButton(text=arr, callback_data='{"name": "do_report_back", "value": {}}'.format(keyboard_dict[arr]))
+
+            if subkey:
+                keyboard.append(subkey)
+            else:
+                self.log.error("Could not generate keyboard. Data type error in arrangement: {}".format(arr))
+        return keyboard
+
+
 
     def _extract_result(self, response):
         """Each response must be a dictionary with only one entry {'result': whatever}
@@ -398,6 +435,11 @@ class Michael:
 
                 self._send_telegram_message(chat_id, "User {} added to the family".format(newID))
                 self._send_telegram_message(newID, "Welcome to the family. Your request has been approved by an admin.")
+
+    def do_report_back_callback(self, query_id, chat_id, value, query):
+        """Reports the custom keyboard markup response to the client"""
+        self.bot.answerCallbackQuery(query_id)
+        self._send_message_to_underlings(value, chat_id)
 
     def handle_callback(self, query):
         """Handles callbacks from telegram"""
