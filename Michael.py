@@ -73,7 +73,10 @@ class Michael:
         self.Client = Client_(HOST=config_socket["Client"]["IP"], PORT=config_socket["Client"]["Port"])
         MessageLoop(self.bot, {"chat": self.handle_text,
                                "callback_query": self.handle_callback}).run_as_thread()
-        self._send_telegram_message(self.config["SuperUser"][0], "Micheal just woke up and is ready for commands")
+        try:
+            self._send_telegram_message(self.config["SuperUser"][0], "Micheal just woke up and is ready for commands")
+        except:
+            self.log.error("You first need to send the bot a message, before he can send you one!")
         while not self.quit:
             try:
                 time.sleep(5)

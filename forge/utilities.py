@@ -1,6 +1,9 @@
 import yaml, json, os, logging, sys
 import logging.config
-import psutil
+try:
+    import psutil
+except:
+    pass
 import time
 
 l = logging.getLogger("forge_michael")
