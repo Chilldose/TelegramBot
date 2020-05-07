@@ -83,7 +83,11 @@ def getRAMinfo():
 
 # Return % of CPU used by user as a character string
 def getCPUuse():
-    return (str(os.popen("top -n1 | awk '/Cpu(s):/ {print $2}'").readline().strip()))
+    try:
+        import psutil
+        return str(psutil.cpu_percent())
+    except ModuleNotFoundError:
+        return "psutil is not installed. No CPU usage query possible."
 
 # Return information about disk space as a list (unit included)
 # Index 0: total disk space
