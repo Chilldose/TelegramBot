@@ -68,7 +68,6 @@ class Client_(socket_connections):
         #request = self.create_request(action, value)
         if self.request:
             self.start_connection(self.HOST, self.PORT, self.request)
-
             try:
                 while True:
                     events = self.sel.select(timeout=1)  # Select the socket
@@ -77,7 +76,7 @@ class Client_(socket_connections):
                         try:
                             message.process_events(mask)
                         except Exception:
-                            self.log.error("main: error: exception for {}:{}".format(message.addr, traceback.format_exc()))
+                            self.log.error("main: error: exception for }:{}".format(message.addr, traceback.format_exc()))
                             message.close()
                     # Check for a socket being monitored to continue.
                     if not self.sel.get_map():
@@ -85,7 +84,7 @@ class Client_(socket_connections):
             except KeyboardInterrupt:
                 self.log.critical("caught keyboard interrupt, exiting")
             finally:
-                #self.sel.close() #Todo: is this correct, otherwise it wont work
+                #self.sel.close()
                 self.request = None
                 try:
                     return message.response
@@ -100,6 +99,8 @@ class Server_(socket_connections):
     """Handles a Server connection"""
 
     def __init__(self, responder_funct=None, HOST='127.0.0.1', PORT=65432):
+        """This class has a responder member, define a function which should be called if a connection is established
+        with the server. This function must return a valid python object. Which is then send to the Client"""
         super().__init__(HOST, PORT)
         self.keep_running = False
         self.responder = responder_funct
@@ -155,6 +156,10 @@ class Server_(socket_connections):
                         except Exception:
                             self.log.error("main: error: exception for {}:{}".format(message.addr,traceback.format_exc()))
                             message.close()
+                    # Check for a socket being monitored to continue.
+                    #if not self.sel.get_map():
+                    #    break
+
         except KeyboardInterrupt:
             self.log.critical("caught keyboard interrupt, exiting")
         finally:
@@ -188,7 +193,7 @@ class BaseMessage:
         elif mode == "rw":
             events = selectors.EVENT_READ | selectors.EVENT_WRITE
         else:
-            raise ValueError("Invalid events mask mode {repr(mode)}.")
+            raise ValueError("Invalid events mask mode {}.".format(mode))
         self.selector.modify(self.sock, events, data=self)
 
     def _read(self):
@@ -218,9 +223,8 @@ class BaseMessage:
             else:
                 self._send_buffer = self._send_buffer[sent:]
                 # Close when the buffer is drained. The response has been sent.
-                # Todo: This needs to be done on server side when the response was sent to avoid to many open connections
-                #if sent and not self._send_buffer:
-                #    self.close()
+                if sent and not self._send_buffer:
+                    self.close()
 
     def _json_encode(self, obj, encoding):
         """Simply encodes a python dictionary to a json encoded message to be send over a socket connection"""
@@ -236,7 +240,7 @@ class BaseMessage:
         return obj
 
     def _create_message(
-        self, *, content_bytes, content_type, content_encoding
+        self, *_, content_bytes, content_type, content_encoding
     ):
         """Creates the structure header of a message, to be send over a socket
         It contains the byte order of your system, the content type e.g. text/json
@@ -274,18 +278,12 @@ class BaseMessage:
         try:
             self.selector.unregister(self.sock)
         except Exception as e:
-            self.log.error(
-                f"error: selector.unregister() exception for",
-                f"{self.addr}: {repr(e)}",
-            )
+            self.log.error("error: selector.unregister() exception for".format(self.addr, e))
 
         try:
             self.sock.close()
         except OSError as e:
-            self.log.error(
-                f"error: socket.close() exception for",
-                f"{self.addr}: {repr(e)}",
-            )
+            self.log.error("error: socket.close() exception for".format(self.addr, e))
         finally:
             # Delete reference to socket object for garbage collection
             self.sock = None
@@ -315,7 +313,7 @@ class BaseMessage:
                 "content-encoding",
             ):
                 if reqhdr not in self.jsonheader:
-                    raise ValueError(f'Missing required header "{reqhdr}".')
+                    raise ValueError('Missing required header "{}".'.format(reqhdr))
 
 
 class MessageServer(BaseMessage):
@@ -411,11 +409,11 @@ class MessageClient(BaseMessage):
         """Write back the content of the response if json format"""
         content = self.response
         result = content.get("result")
-        self.log.debug(f"got result: {result}")
+        self.log.debug("got result: {}".format(result))
 
     def _process_response_binary_content(self):
         content = self.response
-        self.log.debug(f"got response: {repr(content)}")
+        self.log.debug("got response: {}".format(content))
 
     def read(self):
         """Reads from the socket.
