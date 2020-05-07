@@ -220,6 +220,7 @@ class Michael:
             # If its a message to be send to the client
             #------------------------------------------------------------------------------------------------------
             if content_type == "text":
+                self.log.info("Text message arrived with content: {}".format(message["text"].strip()))
                 response = self._send_message_to_underlings(message)
                 if not response:
                     self.log.error("Server did not answer")

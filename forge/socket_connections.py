@@ -76,7 +76,7 @@ class Client_(socket_connections):
                         try:
                             message.process_events(mask)
                         except Exception:
-                            self.log.error("main: error: exception for }:{}".format(message.addr, traceback.format_exc()))
+                            self.log.error("main: error: exception for {}:{}".format(message.addr, traceback.format_exc()))
                             message.close()
                     # Check for a socket being monitored to continue.
                     if not self.sel.get_map():
@@ -225,6 +225,20 @@ class BaseMessage:
                 # Close when the buffer is drained. The response has been sent.
                 if sent and not self._send_buffer:
                     self.close()
+
+    def _query_write(self):
+        """Checks if the send buffer contains data and sends the data over the socket.
+        Same as write, but lets the socket connection open for a read later on!"""
+        if self._send_buffer:
+            self.log.debug("sending " + str(repr(self._send_buffer)) + "to" + str(self.addr))
+            try:
+                # Should be ready to write
+                sent = self.sock.send(self._send_buffer)
+            except BlockingIOError:
+                # Resource temporarily unavailable (errno EWOULDBLOCK)
+                pass
+            else:
+                self._send_buffer = self._send_buffer[sent:]
 
     def _json_encode(self, obj, encoding):
         """Simply encodes a python dictionary to a json encoded message to be send over a socket connection"""
@@ -443,7 +457,7 @@ class MessageClient(BaseMessage):
         if not self._request_queued:
             self.queue_request()
 
-        self._write()
+        self._query_write() # Lets the socket open for a read
 
         if self._request_queued:
             if not self._send_buffer:
