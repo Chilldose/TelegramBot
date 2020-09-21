@@ -8,7 +8,7 @@ import logging
 import signal
 import re
 from forge.socket_connections import Client_, Server_
-from forge.utilities import parse_args, LogFile, load_yaml
+from forge.utilities import parse_args, LogFile, load_yaml, get_ip
 from forge.utilities import getuptime, getDiskSpace, getCPUuse, getRAMinfo, getCPUtemperature
 import telepot
 from telepot.loop import MessageLoop
@@ -38,7 +38,7 @@ class Michael:
         self.Server = None
         self.Client = None
         self.ask_superUser = ["/newuser"] # Command calls, which must be accepted/send by a superuser
-        self.all_user_callbacks = ["/status", "/newuser", "/help", "/ping"] # Commands every user can call
+        self.all_user_callbacks = ["/status", "/newuser", "/help", "/ping", "/IP"] # Commands every user can call
         self.newUserrequests = [] # Here all new user requests are stored as long as they are not processed
         self.message_types = ["ID", "PLOT", "CALLBACK"]
 
@@ -49,11 +49,13 @@ class Michael:
                                                       InlineKeyboardButton(text='Yes',
                                                                            callback_data='{"name": "do_reboot", "value": "yes"}')],
                                    "Do you really want to restart the computer?", None,
-                                   "Reboots the computer (only LINUX machines, and you have to be an admin) "),
-                                  (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback", "Gives you some statistics about the computer (Only works on LINUX)"),
+                                   "Reboots the computer (only LINUX machines, and you have to be an admin)."),
+                                  (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback", "Gives you some statistics about the computer (Only works on LINUX)."),
                                   (re.compile(r"/newuser"), None, "A new user wants to join the club: ", "do_newuser_request", "Send this message to be added as a valid user."),
-                                  (re.compile(r"/help"), None, "All possible commands:", "do_help", "Shows you all possible commands"),
-                                  (re.compile(r"/ping"), None, "The ping yielded:", "do_ping", "Pings the computer the Bot should connect to")
+                                  (re.compile(r"/help"), None, "All possible commands:", "do_help", "Shows you all possible commands."),
+                                  (re.compile(r"/ping"), None, "The ping yielded:", "do_ping", "Pings the computer the Bot should connect to."),
+                                  (re.compile(r"/IP"), None, "The IP is {}:", "do_get_IP",
+                                   "Sends you the IP of the machine, the bot is running on.")
 
                              ]
 
@@ -472,6 +474,16 @@ class Michael:
             self.log.critical("Unauthorized person tried to make a callback. ID: {}".format(query_id))
             for superU in self.config["SuperUser"]:
                 self.report_to_owner(query, send_to=superU)
+
+    def do_get_IP_callback(self, ID, msg):
+        """Gets the IP of the machine and sends it to the user."""
+        try:
+            IP = get_ip()
+        except Exception as err:
+            IP = "ERROR: Could not obtain IP. ERRORCODE: {}".format(err)
+        finally:
+            self._send_telegram_message(ID, "The IP is {}:".format(IP))
+
 
 
 if __name__ == "__main__":
