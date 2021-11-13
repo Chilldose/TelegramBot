@@ -10,9 +10,9 @@ import re
 from forge.socket_connections import Client_, Server_
 from forge.utilities import parse_args, LogFile, load_yaml, get_ip
 from forge.utilities import getuptime, getDiskSpace, getCPUuse, getRAMinfo, getCPUtemperature
-import telepot
-from telepot.loop import MessageLoop
-from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
+
+from telegram import Update, ForceReply
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from threading import Thread
 
 
@@ -44,20 +44,20 @@ class Michael:
 
 
         #(regex, keyboard, Message, function to call, helptext)
-        self.callback_commands = [(re.compile(r"/reboot"), [InlineKeyboardButton(text='No',
-                                                                           callback_data='{"name": "do_reboot", "value": "no"}'),
-                                                      InlineKeyboardButton(text='Yes',
-                                                                           callback_data='{"name": "do_reboot", "value": "yes"}')],
-                                   "Do you really want to restart the computer?", None,
-                                   "Reboots the computer (only LINUX machines, and you have to be an admin)."),
-                                  (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback", "Gives you some statistics about the computer (Only works on LINUX)."),
-                                  (re.compile(r"/newuser"), None, "A new user wants to join the club: ", "do_newuser_request", "Send this message to be added as a valid user."),
-                                  (re.compile(r"/help"), None, "All possible commands:", "do_help", "Shows you all possible commands."),
-                                  (re.compile(r"/ping"), None, "The ping yielded:", "do_ping", "Pings the computer the Bot should connect to."),
-                                  (re.compile(r"/IP"), None, "The IP is {}:", "do_get_IP",
-                                   "Sends you the IP of the machine, the bot is running on.")
-
-                             ]
+        # self.callback_commands = [(re.compile(r"/reboot"), [InlineKeyboardButton(text='No',
+        #                                                                    callback_data='{"name": "do_reboot", "value": "no"}'),
+        #                                               InlineKeyboardButton(text='Yes',
+        #                                                                    callback_data='{"name": "do_reboot", "value": "yes"}')],
+        #                            "Do you really want to restart the computer?", None,
+        #                            "Reboots the computer (only LINUX machines, and you have to be an admin)."),
+        #                           (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback", "Gives you some statistics about the computer (Only works on LINUX)."),
+        #                           (re.compile(r"/newuser"), None, "A new user wants to join the club: ", "do_newuser_request", "Send this message to be added as a valid user."),
+        #                           (re.compile(r"/help"), None, "All possible commands:", "do_help", "Shows you all possible commands."),
+        #                           (re.compile(r"/ping"), None, "The ping yielded:", "do_ping", "Pings the computer the Bot should connect to."),
+        #                           (re.compile(r"/IP"), None, "The IP is {}:", "do_get_IP",
+        #                            "Sends you the IP of the machine, the bot is running on.")
+        #
+        #                      ]
 
         # Do something
         self.log.info("Loading config file...")
@@ -68,25 +68,29 @@ class Michael:
         self.log.info("Start listening carefully to the Botfather...")
 
     def run(self):
+
+        # Init the socet connection for data exchange with other programs
         config_socket = self.config["Socket_connection"]
         self.Server = Server_(HOST=config_socket["Host"]["IP"], PORT=config_socket["Host"]["Port"])
         self.Server.responder = self.handle_server_requests
         self.Server.start()  # Starts the Server thread
         self.Client = Client_(HOST=config_socket["Client"]["IP"], PORT=config_socket["Client"]["Port"])
-        MessageLoop(self.bot, {"chat": self.handle_text,
-                               "callback_query": self.handle_callback}).run_as_thread()
+
+        # Start the Bot
+        self.bot.start_polling()
+
         try:
             self._send_telegram_message(self.config["SuperUser"][0], "Micheal just woke up and is ready for commands")
         except:
             self.log.error("You first need to send the bot a message, before he can send you one!")
-        while not self.quit:
-            try:
-                time.sleep(5)
-            except KeyboardInterrupt:
-                self.quit = True
+
+        # Run the bot until you press Ctrl-C or the process receives SIGINT,
+        # SIGTERM or SIGABRT. This should be used most of the time, since
+        # start_polling() is non-blocking and will stop the bot gracefully.
+        self.bot.idle()
 
     def handle_server_requests(self, action, value):
-        """handles all request which came from a client"""
+        """Handles all request which came from a client"""
         self.log.info("Got server message {}: {}".format(action, value))
         if action == "TelegramBot": # Only accept request for the telegram bot
             # Each value must contain as key the ID to whom I should send something
@@ -112,7 +116,7 @@ class Michael:
 
     def _init_connection_to_Bot(self):
         """Takes the information (token) from the config file and connects to the bot"""
-        self.bot = telepot.Bot(self.config["token"])
+        self.bot = Updater(self.config["token"])
 
     def _send_telegram_message(self, ID, msg, **kwargs):
         """Sends a telegram message to the father"""
@@ -189,7 +193,7 @@ class Michael:
                                              "".format(uptime, temp, CPU, RAM, DISK))
 
     def handle_text(self, message):
-        """This function simply handles all text based messages"""
+        """This function simply handles all text based message, entry point for messages comming from telegram"""
         content_type, chat_type, ID = telepot.glance(message)
         if self.check_user_ID(message) or message["text"].strip() == "/newuser": # Either you know him or the first message is newuser command
             if content_type != "text":

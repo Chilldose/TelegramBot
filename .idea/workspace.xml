@@ -2,8 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="371a35d0-e998-4a4e-a99d-eb2a97b18f65" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/TelegramBot.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/TelegramBot.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/forge/utilities.py" beforeDir="false" afterPath="$PROJECT_DIR$/forge/utilities.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Michael.py" beforeDir="false" afterPath="$PROJECT_DIR$/Michael.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,17 +29,18 @@
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showExcludedFiles" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunManager" selected="Python.utilities">
+  <component name="RunManager" selected="Python.Michael">
     <configuration name="Michael" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="TelegramBot" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -84,8 +87,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.utilities" />
         <item itemvalue="Python.Michael" />
+        <item itemvalue="Python.utilities" />
       </list>
     </recent_temporary>
   </component>
@@ -101,6 +104,7 @@
       </list>
     </option>
   </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="SvnConfiguration">
     <configuration />
   </component>
@@ -133,24 +137,6 @@
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
   </component>
-  <component name="WindowStateProjectService">
-    <state width="2517" height="177" key="GridCell.Tab.0.bottom" timestamp="1606830524127">
-      <screen x="0" y="0" width="2560" height="1040" />
-    </state>
-    <state width="2517" height="177" key="GridCell.Tab.0.bottom/0.0.2560.1040@0.0.2560.1040" timestamp="1606830524127" />
-    <state width="2517" height="177" key="GridCell.Tab.0.center" timestamp="1606830524127">
-      <screen x="0" y="0" width="2560" height="1040" />
-    </state>
-    <state width="2517" height="177" key="GridCell.Tab.0.center/0.0.2560.1040@0.0.2560.1040" timestamp="1606830524127" />
-    <state width="2517" height="177" key="GridCell.Tab.0.left" timestamp="1606830524127">
-      <screen x="0" y="0" width="2560" height="1040" />
-    </state>
-    <state width="2517" height="177" key="GridCell.Tab.0.left/0.0.2560.1040@0.0.2560.1040" timestamp="1606830524127" />
-    <state width="2517" height="177" key="GridCell.Tab.0.right" timestamp="1606830524127">
-      <screen x="0" y="0" width="2560" height="1040" />
-    </state>
-    <state width="2517" height="177" key="GridCell.Tab.0.right/0.0.2560.1040@0.0.2560.1040" timestamp="1606830524127" />
-  </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
@@ -166,9 +152,5 @@
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
-  </component>
-  <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/TelegramBot$Michael.coverage" NAME="Michael Coverage Results" MODIFIED="1588859205201" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/TelegramBot$utilities.coverage" NAME="utilities Coverage Results" MODIFIED="1606830464931" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/forge" />
   </component>
 </project>
