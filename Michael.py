@@ -3,16 +3,15 @@
 """This is Michael the Botfahters child. It recieves messages from his father and sends it via TCP to his underlings.
 They execute the orders from Botfather and report back to Michael, after that the Botfather gets informed."""
 
-import time, sys, json, os, yaml
+import time, json, os, yaml
 import logging
-import signal
 import re
 from forge.socket_connections import Client_, Server_
 from forge.utilities import parse_args, LogFile, load_yaml, get_ip
 from forge.utilities import getuptime, getDiskSpace, getCPUuse, getRAMinfo, getCPUtemperature
 
-from telegram import Update, ForceReply
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram import Update, ForceReply, InlineKeyboardButton , InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 from threading import Thread
 
 
@@ -29,9 +28,11 @@ class Michael:
         self.processed_messages = 0
         self.config_path = config
         self.log = logging.getLogger("{} notes".format("Bot Logger"))
-        self.config = None
+        self.config = {}
         self.args = parse_args()
         self.bot = None
+        self.updater = None
+        self.dispatcher = None
         self.quit = False
         self.intruders = {} # List of all false ID messages
         self.blocked_user_ID = []
@@ -39,7 +40,7 @@ class Michael:
         self.Client = None
         self.ask_superUser = ["/newuser"] # Command calls, which must be accepted/send by a superuser
         self.all_user_callbacks = ["/status", "/newuser", "/help", "/ping", "/IP"] # Commands every user can call
-        self.newUserrequests = [] # Here all new user requests are stored as long as they are not processed
+        self.newUserrequests = {} # Here all new user requests are stored as long as they are not processed
         self.message_types = ["ID", "PLOT", "CALLBACK"]
 
 
@@ -61,33 +62,121 @@ class Michael:
 
         # Do something
         self.log.info("Loading config file...")
-        self.load_config()
+        self._load_config()
+        self.SuperUser = self.config["SuperUser"][0]
         self.name = self.config.get("Name", "Michael")
         self.log.info("Connecting to the Bothfather for guidance...")
         self._init_connection_to_Bot()
         self.log.info("Start listening carefully to the Botfather...")
 
     def run(self):
-
-        # Init the socet connection for data exchange with other programs
+        # Init the socket connection for data exchange with other programs
         config_socket = self.config["Socket_connection"]
         self.Server = Server_(HOST=config_socket["Host"]["IP"], PORT=config_socket["Host"]["Port"])
         self.Server.responder = self.handle_server_requests
         self.Server.start()  # Starts the Server thread
         self.Client = Client_(HOST=config_socket["Client"]["IP"], PORT=config_socket["Client"]["Port"])
 
+        # All command handlers init
+        self.dispatcher.add_handler(CommandHandler('newuser', self.do_newuser_request))
+        self.dispatcher.add_handler(CallbackQueryHandler(self.handle_callback))
+
         # Start the Bot
-        self.bot.start_polling()
+        self.updater.start_polling()
 
         try:
             self._send_telegram_message(self.config["SuperUser"][0], "Micheal just woke up and is ready for commands")
-        except:
-            self.log.error("You first need to send the bot a message, before he can send you one!")
+        except Exception as err:
+            self.log.error("Init message could not be send with error: {}".format(err))
 
         # Run the bot until you press Ctrl-C or the process receives SIGINT,
         # SIGTERM or SIGABRT. This should be used most of the time, since
         # start_polling() is non-blocking and will stop the bot gracefully.
-        self.bot.idle()
+        self.updater.idle()
+
+    # Bot Handlers
+
+    def do_newuser_request(self, update: Update, context: CallbackContext):
+        """Adds a new user to the framework. This function gets called two times. First when the new user sends the
+        query. There only an Id will be send"""
+
+        ID = update.effective_user.id
+        name = update.effective_user.full_name
+        is_bot = update.effective_user.is_bot
+        username = update.effective_user.name
+        SuperUser = self.SuperUser
+        if not is_bot:
+            self.newUserrequests.update({ID: (name, username)})
+            keyboard = [InlineKeyboardButton(text='Accept',
+                                             callback_data='{"name": "do_newuser_callback", "value": "yes/ID:'+str(ID)+'"}'),
+                        InlineKeyboardButton(text='Reject',
+                                             callback_data='{"name": "do_newuser_callback", "value": "no/ID:'+str(ID)+'"}')]
+            keyboard = InlineKeyboardMarkup([keyboard])
+            text = "A user wants to become a member of the Family: \n\n" \
+                   "ID: {} \n" \
+                   "User Name: {} \n" \
+                   "Name: {}".format(ID, username, name)
+            self._send_telegram_message(SuperUser, text, reply_markup=keyboard)
+            update.message.reply_text("Your request has been sent to an admin.")
+        else:
+            self._send_telegram_message(SuperUser, "The bot {}, tried to connect with me. I blocked".format(username))
+
+    def do_newuser_callback(self, chat_id, value, query):
+            """
+            Does or does not add the user.
+            chat_id: The one sending the accept or decline response
+            value: the value the admit set for accepting/not accepting
+            query: the initial query object from the user asked for entry
+            """
+            newID = int(value.split("/ID:")[1]) # The user requesting
+            value = value.split("/ID:")[0]
+
+            self.newUserrequests.pop(newID)
+
+            if value.lower() == 'no':
+                self._send_telegram_message(chat_id, "User {} not added to the family".format(newID))
+                self._send_telegram_message(newID, "Your request has been declined by the admin")
+            else:
+                self.config["Users"].append(newID)
+                self.log.info("Try adding user to config file and write to file...")
+                try:
+                    with open(self.config_path, 'w') as outfile:
+                        yaml.dump(self.config, outfile, default_flow_style=False)
+                except Exception as err:
+                    self.log.warning("Could not save config to file, user not permanently added. Error: {}".format(err))
+                    self._send_telegram_message(chat_id, "Could not save config to file, user not permanently added")
+
+                self._send_telegram_message(chat_id, "User {} added to the family".format(newID))
+                self._send_telegram_message(newID, "Welcome to the family. Your request has been approved by an admin.")
+
+    def handle_callback(self, update: Update, context: CallbackContext):
+        """Handles callbacks from telegram"""
+        ID = update.effective_user.id # The ID from the person making the response
+        is_bot = update.effective_user.is_bot # Check if it is not a bot
+
+        if is_bot:
+            self.report_to_owner(update.callback_query, send_to=self.SuperUser)
+
+        elif self.check_user_ID(update.effective_user):
+            update.callback_query.answer()  # Answer the call so that everything is in order for the other party
+            # Extract data from callback
+            cb_info = json.loads(update.callback_query.data)
+            func_name = cb_info['name']
+            try:
+                func = getattr(self, func_name)
+                # Funktion aufrufen
+                response = func(ID, cb_info['value'], update)
+            except Exception as err:
+                self.log.error("Could not run callback function {} with error: {}".format(func_name, err))
+                return
+            if response:
+                self._process_message(response, ID)
+        else:
+            self.log.critical("Unauthorized person tried to make a callback. ID: {}".format(ID))
+            for superU in self.config["SuperUser"]:
+                self.report_to_owner(update.callback_query, send_to=superU)
+
+
 
     def handle_server_requests(self, action, value):
         """Handles all request which came from a client"""
@@ -104,7 +193,7 @@ class Michael:
             return "Wrong message action header for TelegramBot"
 
 
-    def load_config(self):
+    def _load_config(self):
         """Loads the config file either from args or passed config file. Args are more important!"""
         if self.args.config:
             self.config = load_yaml(self.args.config)
@@ -115,14 +204,16 @@ class Michael:
             self.log.error("{} cannot work without his cheat sheet. Please add a config file and retry.".format(self.name))
 
     def _init_connection_to_Bot(self):
-        """Takes the information (token) from the config file and connects to the bot"""
-        self.bot = Updater(self.config["token"])
+        """Ta= N the information (token) from the config file and connects to the bot"""
+        self.updater = Updater(self.config["token"])
+        self.bot = self.updater.bot
+        self.dispatcher = self.updater.dispatcher
 
     def _send_telegram_message(self, ID, msg, **kwargs):
         """Sends a telegram message to the father"""
         self.log.info("Sending message '{}' to ID: {}".format(msg, ID))
         if ID:
-            self.bot.sendMessage(ID, msg, **kwargs)
+            self.bot.send_message(chat_id=ID, text=msg, **kwargs)
         else:
             self.log.warning("No ID passed, no message sent!")
 
@@ -143,17 +234,17 @@ class Michael:
         self.log.info("Server responded with {}".format(response))
         return response
 
-    def check_user_ID(self, message, ID=None):
+    def check_user_ID(self, user, ID=None):
         """
-        This function checks if the user who sendet the message is a valid user.
+        This function checks if the user who sended the message is a valid user.
         :param message: The telegram message
         :param ID: checks if the message was send from a specific ID (optional), can be int or list of int
         :return: bool
         """
-        senderID = message['from']['id']
-        name = message['from'].get('first_name', "None")
-        username = message['from'].get('username', "None")
-        lastname = message['from'].get('last_name', "None")
+        senderID = user.id
+        name = user.first_name
+        username = user.username
+        lastname = user.last_name
 
         if isinstance(ID, int):
             ID = [ID]
@@ -161,7 +252,7 @@ class Michael:
         self.log.info("Got message from ID: {} with name {} {} and username {}".format(senderID, name, lastname, username))
         if senderID not in (self.config["Users"] if not ID else ID):
             self.log.critical("User with ID: {} and name {} and username {}, was not recognised as valid user!".format(ID, name, username))
-            self.intruders[senderID] = message
+            self.intruders[senderID] = user
             return False
         else:
             return True
@@ -191,7 +282,7 @@ class Michael:
 
         self._send_telegram_message(chat_ID, "Warning: This statistics apply to UNIX machines only!\n\n {} {} {} {} {}"
                                              "".format(uptime, temp, CPU, RAM, DISK))
-
+    # Todo
     def handle_text(self, message):
         """This function simply handles all text based message, entry point for messages comming from telegram"""
         content_type, chat_type, ID = telepot.glance(message)
@@ -405,79 +496,12 @@ class Michael:
             except:
                 self._send_telegram_message(chat_id, "Reboot failed. Only works on LINUX machines")
 
-    def do_newuser_request(self, SuperUser, msg):
-        """Adds a new user to the framework. This function gets calles two times. First when the new user sends the
-        query. There only an Id will be send"""
-        ID = msg['from']['id']
-        name = msg['from'].get('first_name', "None")
-        username = msg['from'].get('username', "None")
-        lastname = msg['from'].get('last_name', "None")
-        self.newUserrequests.append((ID, name, lastname, username))
-        keyboard = [InlineKeyboardButton(text='Accept',
-                                  callback_data='{"name": "do_newuser", "value": "yes"}'),
-                        InlineKeyboardButton(text='Reject',
-                                  callback_data='{"name": "do_newuser", "value": "no"}')]
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[keyboard])
-        text = "A user wants to become a member of the Family: \n\n" \
-                                                                 "ID: {} \n" \
-                                                                 "User Name: {} \n" \
-                                                                 "First Name: {} \n" \
-                                                                 "Last Name: {}".format(ID, username, name, lastname)
-        self._send_telegram_message(SuperUser, text, reply_markup=keyboard)
-        self._send_telegram_message(ID, "Your request has been sent to an admin.")
-
-    def do_newuser_callback(self, query_id, chat_id, value, query):
-            """Does or does not add the user"""
-            self.bot.answerCallbackQuery(query_id)
-            newID = int(re.findall(r"ID:\s*(\w*)", query["message"]["text"])[0])
-
-            for i, entry in enumerate(self.newUserrequests):
-                if newID == entry[0]:
-                    del self.newUserrequests[i]
-
-            if value.lower() == 'no':
-                self._send_telegram_message(chat_id, "User {} not added to the family".format(newID))
-                self._send_telegram_message(newID, "Your request has been declined by the admin")
-            else:
-                self.config["Users"].append(newID)
-                self.log.info("Try adding user to config file and write to file...")
-                try:
-                    with open(self.config_path, 'w') as outfile:
-                        yaml.dump(self.config, outfile, default_flow_style=False)
-                except Exception as err:
-                    self.log.warning("Could not save config to file, user not permanently added. Error: {}".format(err))
-                    self._send_telegram_message(chat_id, "Could not save config to file, user not permanently added")
-
-                self._send_telegram_message(chat_id, "User {} added to the family".format(newID))
-                self._send_telegram_message(newID, "Welcome to the family. Your request has been approved by an admin.")
-
     def do_report_back_callback(self, query_id, chat_id, value, query):
         """Reports the custom keyboard markup response to the client"""
         self.bot.answerCallbackQuery(query_id)
         response = self._send_message_to_underlings(value, chat_id)
         if response:
             return self._extract_result(response)
-
-    def handle_callback(self, query):
-        """Handles callbacks from telegram"""
-        query_id = query['id']
-        chat_id = query['message']['chat']['id']
-        callback_data = query['data']
-        # Extract data from callback
-        cb_info = json.loads(callback_data)
-
-        if self.check_user_ID(query):
-            # Funktionsname erstellen (im Attribut "name")
-            func_name = "{}_callback".format(cb_info['name'])
-            func = getattr(self,func_name)
-            # Funktion aufrufen
-            response = func(query_id, chat_id, cb_info['value'], query)
-            if response:
-                self._process_message(response, chat_id)
-        else:
-            self.log.critical("Unauthorized person tried to make a callback. ID: {}".format(query_id))
-            for superU in self.config["SuperUser"]:
-                self.report_to_owner(query, send_to=superU)
 
     def do_get_IP_callback(self, ID, msg):
         """Gets the IP of the machine and sends it to the user."""
