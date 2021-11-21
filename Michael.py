@@ -38,27 +38,8 @@ class Michael:
         self.blocked_user_ID = []
         self.Server = None
         self.Client = None
-        self.ask_superUser = ["/newuser"] # Command calls, which must be accepted/send by a superuser
-        self.all_user_callbacks = ["/status", "/newuser", "/help", "/ping", "/IP"] # Commands every user can call
         self.newUserrequests = {} # Here all new user requests are stored as long as they are not processed
-        self.message_types = ["ID", "PLOT", "CALLBACK"]
 
-
-        #(regex, keyboard, Message, function to call, helptext)
-        # self.callback_commands = [(re.compile(r"/reboot"), [InlineKeyboardButton(text='No',
-        #                                                                    callback_data='{"name": "do_reboot", "value": "no"}'),
-        #                                               InlineKeyboardButton(text='Yes',
-        #                                                                    callback_data='{"name": "do_reboot", "value": "yes"}')],
-        #                            "Do you really want to restart the computer?", None,
-        #                            "Reboots the computer (only LINUX machines, and you have to be an admin)."),
-        #                           (re.compile(r"/status"), None, "ComputerStats:", "do_statistics_callback", "Gives you some statistics about the computer (Only works on LINUX)."),
-        #                           (re.compile(r"/newuser"), None, "A new user wants to join the club: ", "do_newuser_request", "Send this message to be added as a valid user."),
-        #                           (re.compile(r"/help"), None, "All possible commands:", "do_help", "Shows you all possible commands."),
-        #                           (re.compile(r"/ping"), None, "The ping yielded:", "do_ping", "Pings the computer the Bot should connect to."),
-        #                           (re.compile(r"/IP"), None, "The IP is {}:", "do_get_IP",
-        #                            "Sends you the IP of the machine, the bot is running on.")
-        #
-        #                      ]
 
         # Do something
         self.log.info("Loading config file...")
@@ -77,15 +58,17 @@ class Michael:
         self.Server.start()  # Starts the Server thread
         self.Client = Client_(HOST=config_socket["Client"]["IP"], PORT=config_socket["Client"]["Port"])
 
-        # All command handlers init
-        self.dispatcher.add_handler(CommandHandler('newuser', self.do_newuser_request))
+        # All command handlers and callback init
+        self._add_telegram_commands()
         self.dispatcher.add_handler(CallbackQueryHandler(self.handle_callback))
+        # Handles all text messages except for commands
+        self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.handle_text))
 
         # Start the Bot
         self.updater.start_polling()
 
         try:
-            self._send_telegram_message(self.config["SuperUser"][0], "Micheal just woke up and is ready for commands")
+            self._send_telegram_message(self.config["SuperUser"][0], "Michael just woke up and is ready for commands")
         except Exception as err:
             self.log.error("Init message could not be send with error: {}".format(err))
 
@@ -94,11 +77,11 @@ class Michael:
         # start_polling() is non-blocking and will stop the bot gracefully.
         self.updater.idle()
 
-    # Bot Handlers
-
-    def do_newuser_request(self, update: Update, context: CallbackContext):
-        """Adds a new user to the framework. This function gets called two times. First when the new user sends the
-        query. There only an Id will be send"""
+    # Bot Command Handlers #############################################################################################
+    # All functions that begin with do, are added as command handlers to the bot. Typing the function name as telegram
+    # bot command, will call this function --> e.g \newuser at telegram will call do_newuser
+    def do_newuser(self, update: Update, context: CallbackContext):
+        """Adds a new user to the framework. It will be called by the telegram bot command '\newuser'"""
 
         ID = update.effective_user.id
         name = update.effective_user.full_name
@@ -108,9 +91,9 @@ class Michael:
         if not is_bot:
             self.newUserrequests.update({ID: (name, username)})
             keyboard = [InlineKeyboardButton(text='Accept',
-                                             callback_data='{"name": "do_newuser_callback", "value": "yes/ID:'+str(ID)+'"}'),
+                                             callback_data='{"name": "newuser_callback", "value": "yes/ID:'+str(ID)+'"}'),
                         InlineKeyboardButton(text='Reject',
-                                             callback_data='{"name": "do_newuser_callback", "value": "no/ID:'+str(ID)+'"}')]
+                                             callback_data='{"name": "newuser_callback", "value": "no/ID:'+str(ID)+'"}')]
             keyboard = InlineKeyboardMarkup([keyboard])
             text = "A user wants to become a member of the Family: \n\n" \
                    "ID: {} \n" \
@@ -121,13 +104,102 @@ class Michael:
         else:
             self._send_telegram_message(SuperUser, "The bot {}, tried to connect with me. I blocked".format(username))
 
-    def do_newuser_callback(self, chat_id, value, query):
+    def do_ping(self, update: Update, context: CallbackContext):
+        """Pings the TCP server and waits for a response. Any response from the serves counts as success."""
+        ID = update.effective_user.id
+        response = self._send_message_to_server("PING", ID)
+        if response:
+            update.message.reply_text("Server answered and is ready")
+        else:
+            update.message.reply_text("Server seems to be offline. A reboot can solve this problem.")
+
+    def do_help(self, update: Update, context: CallbackContext):
+        """Generates the help text. It takes the doc strings of all possible telegram commands and replies them."""
+        text = ""
+        for com in self._get_all_telegram_commands():
+            text += "{} - {} \n\n".format(com[0].strip(), com[1].strip())
+        update.message.reply_text(text)
+
+    def do_info(self, update: Update, context: CallbackContext):
+        """Gathers statistics information about the system and writes it on telegram"""
+        uptime = "Uptime: {} h\n".format(round(getuptime()/3600,2))
+        temp = "CPU Temperature: {} C\n".format(getCPUtemperature())
+        CPU = "Uptime: {} %\n".format(getCPUuse())
+        RAM = "RAM usage: {} \n".format(getRAMinfo())
+        DISK = "Diskspace: {} \n".format(getDiskSpace())
+
+        update.message.reply_text("Warning: This statistics apply to UNIX machines only!\n\n {} {} {} {} {}"
+                                             "".format(uptime, temp, CPU, RAM, DISK))
+
+    def do_getIP(self, update: Update, context: CallbackContext):
+        """Gets the IP of the machine and sends it to the user."""
+        try:
+            IP = get_ip()
+        except Exception as err:
+            IP = "ERROR: Could not obtain IP. ERRORCODE: {}".format(err)
+            self.log.error("ERROR: Could not obtain IP. ERRORCODE: {}".format(err))
+        finally:
+            update.message.reply_text("The IP is {}:".format(IP))
+
+    def do_reboot(self, update: Update, context: CallbackContext):
+        """
+        Ask if the system should be rebooted or not.
+        """
+        ID = update.effective_user.id
+        is_bot = update.effective_user.is_bot
+        username = update.effective_user.name
+        SuperUser = self.SuperUser
+        if not is_bot:
+            keyboard = [InlineKeyboardButton(text='Reboot Now',
+                                             callback_data='{"name": "reboot_callback", "value": "yes"}'),
+                        InlineKeyboardButton(text='Abort',
+                                             callback_data='{"name": "reboot_callback", "value": "no"}')]
+            keyboard = InlineKeyboardMarkup([keyboard])
+            text = "Do you want to reboot the system?"
+            self._send_telegram_message(ID, text, reply_markup=keyboard)
+        else:
+            self._send_telegram_message(SuperUser, "The bot {}, tried to reboot me. I blocked".format(username))
+
+    def do_start(self, update: Update, context: CallbackContext):
+        """
+        Reports to the owner if someone is connecting with the bot.
+        """
+        # If its the start message, just report this to the admin
+        ID = update.effective_user.id
+        name = update.effective_user.full_name
+        is_bot = update.effective_user.is_bot
+        lastname = update.effective_user.last_name
+        username = update.effective_user.username
+        SuperUser = self.SuperUser
+
+        self._send_telegram_message(SuperUser, "A new user has started a conversation with me: \n\n" \
+                                             "ID: {} \n" \
+                                             "User Name: {} \n" \
+                                             "First Name: {} \n" \
+                                             "Last Name: {} \n " \
+                                             "is Bot: {}".format(ID, username, name, lastname, is_bot))
+
+    # Bot callback functions############################################################################################
+    def reboot_callback(self, update, context, value):
+        """Restarts the respberry if necessary"""
+        if value.lower() == 'no':
+            update.message.reply_text("Aborted reboot")
+        else:
+            update.message.reply_text("Reboot initiated")
+            try:
+                os.system("sudo /sbin/reboot -n&")
+            except:
+                update.message.reply_text("Reboot failed. Only works on LINUX machines")
+
+    def newuser_callback(self, update, context, value):
             """
             Does or does not add the user.
             chat_id: The one sending the accept or decline response
             value: the value the admit set for accepting/not accepting
             query: the initial query object from the user asked for entry
             """
+            chat_id = update.effective_user.id
+
             newID = int(value.split("/ID:")[1]) # The user requesting
             value = value.split("/ID:")[0]
 
@@ -149,13 +221,42 @@ class Michael:
                 self._send_telegram_message(chat_id, "User {} added to the family".format(newID))
                 self._send_telegram_message(newID, "Welcome to the family. Your request has been approved by an admin.")
 
+    def report_back_callback(self, query_id, chat_id, value, query):
+        """Reports the custom keyboard markup response to the client"""
+
+        response = self._send_message_to_underlings(value, chat_id)
+        if response:
+            return self._extract_result(response)
+
+    # Telegram Bot handlers ############################################################################################
+    def handle_text(self, update: Update, context: CallbackContext):
+        """This function simply handles all text based message, entry point for messages comming from telegram"""
+        ID = update.effective_user.id
+        message = update.message.text
+
+        if self.check_user_ID(update.effective_user):
+            self.log.info("Text message arrived with content: '{}' from user {}".format(message.strip(), ID))
+            response = self._send_message_to_server(message)
+            if not response:
+                self.log.error("Server did not answer")
+                response = {"result": "The server seems to be offline..."}
+            x = Thread(target=self._process_message, args=(self._extract_result(response),ID))
+            x.start()
+
+        # If any other message is send and the user is not valid
+        else: # If the ID is not recognised
+            if ID not in self.blocked_user_ID:
+                self.blocked_user_ID.append(ID)
+                self.report_to_owner(update, update.message.text)
+
+
     def handle_callback(self, update: Update, context: CallbackContext):
         """Handles callbacks from telegram"""
         ID = update.effective_user.id # The ID from the person making the response
         is_bot = update.effective_user.is_bot # Check if it is not a bot
 
         if is_bot:
-            self.report_to_owner(update.callback_query, send_to=self.SuperUser)
+            self.report_to_owner(update, update.callback_query.data)
 
         elif self.check_user_ID(update.effective_user):
             update.callback_query.answer()  # Answer the call so that everything is in order for the other party
@@ -165,7 +266,7 @@ class Michael:
             try:
                 func = getattr(self, func_name)
                 # Funktion aufrufen
-                response = func(ID, cb_info['value'], update)
+                response = func(update, context, cb_info['value'])
             except Exception as err:
                 self.log.error("Could not run callback function {} with error: {}".format(func_name, err))
                 return
@@ -173,11 +274,10 @@ class Michael:
                 self._process_message(response, ID)
         else:
             self.log.critical("Unauthorized person tried to make a callback. ID: {}".format(ID))
-            for superU in self.config["SuperUser"]:
-                self.report_to_owner(update.callback_query, send_to=superU)
+            self.report_to_owner(update, update.callback_query.data)
 
 
-
+    # Internal Server Handler ##########################################################################################
     def handle_server_requests(self, action, value):
         """Handles all request which came from a client"""
         self.log.info("Got server message {}: {}".format(action, value))
@@ -192,6 +292,33 @@ class Michael:
             self.log.critical("Got a message which was not for me! {}: {}".format(action, value))
             return "Wrong message action header for TelegramBot"
 
+    # Private functions ################################################################################################
+    def _add_telegram_commands(self):
+        """
+        Adds all functions starting with 'do_' as handlers to the telegram bot.
+        """
+
+        for names in self._get_all_telegram_commands():
+            self.log.info("Adding telegram command {} as handler.".format(names))
+            try:
+                self.dispatcher.add_handler(CommandHandler(names[0], getattr(self, "do_"+names[0])))
+            except Exception as err:
+                self.log.error("Could not add telegram command handler {} with error {}".format(names, err))
+
+
+    def _get_all_telegram_commands(self):
+        """
+        Finds all do_* members the framework and returns them without the do. Furthermore the doc string of all found
+        commands will be returned as well. As return value tuples with (name, docstring) in as list will be returned.
+        """
+        names = []
+        for poss in dir(self):
+            if "do_" in poss[:3]:
+                try:
+                    names.append((poss[3:], getattr(self, poss).__doc__))
+                except Exception as err:
+                    self.log.error("Could not obtain docstring from function {} with error: {}".format(poss, err))
+        return names
 
     def _load_config(self):
         """Loads the config file either from args or passed config file. Args are more important!"""
@@ -217,8 +344,10 @@ class Michael:
         else:
             self.log.warning("No ID passed, no message sent!")
 
-    def _send_message_to_underlings(self, message, ID=None):
-        """Sends a message via tcp"""
+    def _send_message_to_server(self, message, ID=None):
+        """Sends a message via tcp to the server.
+        :param ID: Sends the ID of the requester as well.
+        """
         if isinstance(message, dict):
             msg = message["text"]
             from_ID = message["from"]["id"]
@@ -234,122 +363,14 @@ class Michael:
         self.log.info("Server responded with {}".format(response))
         return response
 
-    def check_user_ID(self, user, ID=None):
-        """
-        This function checks if the user who sended the message is a valid user.
-        :param message: The telegram message
-        :param ID: checks if the message was send from a specific ID (optional), can be int or list of int
-        :return: bool
-        """
-        senderID = user.id
-        name = user.first_name
-        username = user.username
-        lastname = user.last_name
-
-        if isinstance(ID, int):
-            ID = [ID]
-
-        self.log.info("Got message from ID: {} with name {} {} and username {}".format(senderID, name, lastname, username))
-        if senderID not in (self.config["Users"] if not ID else ID):
-            self.log.critical("User with ID: {} and name {} and username {}, was not recognised as valid user!".format(ID, name, username))
-            self.intruders[senderID] = user
-            return False
-        else:
-            return True
-
-    def do_ping(self, ID, msg):
-        """Pings the TCP server and waits for a response"""
-        response = self._send_message_to_underlings("PING", ID)
-        if response:
-            self._send_telegram_message(ID, "Server answered and is ready")
-        else:
-            self._send_telegram_message(ID, "Server seems to be offline. A reboot can solve this problem.")
-
-    def do_help(self, ID, msg):
-        """Generates the help text"""
-        text = ""
-        for com in self.callback_commands:
-            text += "{} - {} \n".format(com[0].pattern, com[4])
-        self._send_telegram_message(ID, text)
-
-    def do_statistics_callback(self, chat_ID, msg=None):
-        """Gathers statistics information about the system and writes it on telegram"""
-        uptime = "Uptime: {} h\n".format(round(getuptime()/3600,2))
-        temp = "CPU Temperature: {} C\n".format(getCPUtemperature())
-        CPU = "Uptime: {} %\n".format(getCPUuse())
-        RAM = "RAM usage: {} \n".format(getRAMinfo())
-        DISK = "Diskspace: {} \n".format(getDiskSpace())
-
-        self._send_telegram_message(chat_ID, "Warning: This statistics apply to UNIX machines only!\n\n {} {} {} {} {}"
-                                             "".format(uptime, temp, CPU, RAM, DISK))
-    # Todo
-    def handle_text(self, message):
-        """This function simply handles all text based message, entry point for messages comming from telegram"""
-        content_type, chat_type, ID = telepot.glance(message)
-        if self.check_user_ID(message) or message["text"].strip() == "/newuser": # Either you know him or the first message is newuser command
-            if content_type != "text":
-                self._send_telegram_message(ID, "Sorry, I do not understand {}. I can only cope with text messages".format(content_type))
-            # Check if it is a command
-            #------------------------------------------------------------------------------------------------------
-            for val in self.callback_commands:
-                # Handle Callbacks, only proceed if you are a superuser or the callback is for all users
-                if val[0].match(message["text"]): # Check if callback
-
-                    if val[0].pattern in self.ask_superUser:
-                        # If superuser needs to be asked instead. Change the ID the message should get to
-                        ID = self.config["SuperUser"][0]
-
-                    if (val[0].pattern in self.all_user_callbacks) or ID in self.config["SuperUser"]:
-                        keyboard = InlineKeyboardMarkup(inline_keyboard=[val[1]]) if val[1] else None
-                        if keyboard:
-                            self._send_telegram_message(ID, val[2], reply_markup=keyboard)
-                        else: # If no buttons are there call the callback function
-                            try:
-                                funct = getattr(self, val[3])
-                                funct(ID, msg=message)
-                            except Exception as err:
-                                self.log.error("Could not execute function {} Error: {}".format(val[3], err))
-                        return
-                    else:
-                        self.report_to_owner(message)
-            #------------------------------------------------------------------------------------------------------
-
-            # If its a message to be send to the client
-            #------------------------------------------------------------------------------------------------------
-            if content_type == "text":
-                self.log.info("Text message arrived with content: {}".format(message["text"].strip()))
-                response = self._send_message_to_underlings(message)
-                if not response:
-                    self.log.error("Server did not answer")
-                    response = {"result": "The server seems to be offline..."}
-                x = Thread(target=self._process_message, args=(self._extract_result(response),ID))
-                x.start()
-
-
-
-            # ------------------------------------------------------------------------------------------------------
-
-        # If its the start message, just report this to the admin
-        elif message["text"].strip() == "/start":
-            ID = message['from']['id']
-            name = message['from'].get('first_name', "None")
-            username = message['from'].get('username', "None")
-            lastname = message['from'].get('last_name', "None")
-            send_to = self.config["SuperUser"][0]
-            self._send_telegram_message(send_to, "A new user has started a conversation with me: \n\n" \
-                                                 "ID: {} \n" \
-                                                 "User Name: {} \n" \
-                                                 "First Name: {} \n" \
-                                                 "Last Name: {} \n".format(ID, username, name, lastname))
-
-        # If any other message is send and the user is not valid
-        else: # If the ID is not recognised
-            if ID not in self.blocked_user_ID:
-                self.blocked_user_ID.append(ID)
-                self.report_to_owner(message)
-                self._send_telegram_message(self.config["SuperUser"][0], "I furthermore could not find any reference to this person. I added him "
-                                            "to the list of blocked IDs. All further messages will be ignored from this "
-                                            "ID.")
+    def _extract_result(self, response):
+        """Each response must be a dictionary with only one entry {'result': whatever}
+        Whatever can again be whatever you want --> Dict, str, list etc. This should prevent data mismatch
+        And I know this isnt the best way to go."""
+        try:
+            return response.get("result", "Error: Non valid response layout transmitted from server.")
+        except:
+            self.log.error("Could not extract result from server message. Answer from server was {}".format(response))
 
     def _process_message(self, response, ID):
         """
@@ -368,13 +389,13 @@ class Michael:
 
         # If the response is a dict
         elif isinstance(response, dict):
-            message_processes = False
+            message_processed = False
             for key, it in response.items():
-                if key.strip().upper() in self.message_types:
-                    message_processes = True
+                if key.strip().upper() in ["ID", "IMAGE", "CALLBACK"]:
+                    message_processed = True
                     self._process_special_message(it, ID, type=key)
 
-            if not message_processes:
+            if not message_processed:
                 self.log.critical("Could not process message: {}. Message type was not recognized".format(response))
 
 
@@ -390,17 +411,17 @@ class Michael:
     def _process_special_message(self, message, ID, type):
         """Processes special type messages like Plot messages"""
         admin = self.config["SuperUser"][0]
-
-
         # If a picture should be send to the user
-        if type.strip().upper() == "PLOT":
+        if type.strip().upper() == "IMAGE":
             # The value must be a string! And it must be a valid path.
             if isinstance(message, str):
+                self.log.info("Try sending image {}.".format(message))
                 if os.path.isfile(os.path.normpath(message)):
-                    self.bot.sendPhoto(ID, open(message, 'rb'))
+                    self.bot.send_photo(ID, open(message, 'rb'))
+                    self.log.debug("Image {} send...".format(message))
                 else:
                     self.log.critical("Path {} does not exist or is not accessible. No message sent to {}".format(message, ID))
-                    self._send_telegram_message(ID, "Path {} does not exist or is not accessible.".format(message, ID))
+                    self._send_telegram_message(ID, "Could not send image. Picture not found.".format(message, ID))
 
         # ID means the subdict is a list
         elif type.strip().upper() == "ID":
@@ -440,13 +461,31 @@ class Michael:
             except Exception as err:
                 self.log.error("Could not generate Keyboard due to an error: {}".format(err))
 
+    # General functions ################################################################################################
+    def report_to_owner(self, update, message):
+        ID = update.effective_user.id
+        name = update.effective_user.full_name
+        is_bot = update.effective_user.is_bot
+        lastname = update.effective_user.last_name
+        username = update.effective_user.username
+        self._send_telegram_message(self.SuperUser, "An unauthorized user tried sending me a message: \n\n" \
+                                                                 "ID: {} \n" \
+                                                                 "User Name: {} \n" \
+                                                                 "First Name: {} \n" \
+                                                                 "Last Name: {} \n" \
+                                                                 "is Bot: {} \n"
+                                                                 "Message: {} ".format(ID, username, name, lastname,
+                                                                                       is_bot, message))
 
     def gen_keyboard(self, keyboard_dict, arrangement):
-        """Generates a keyboard and returns the final keyboardobject list"""
+        """Generates a keyboard and returns the final keyboardobject list
+        param: keyboard_dict: a dict with the keys from arragement and value the value they should have if clicked.
+        param: arrangement: [[button1, button2], button 3], with buttons the keys from keyboard dict
+        """
         keyboard = []
         for arr in arrangement:
             subkey = None
-            if isinstance(arr, list) or isinstance(arr, tuple):
+            if isinstance(arr, (tuple, list)):
                 subkey = self.gen_keyboard(keyboard_dict, arr)
             elif isinstance(arr, str):
                 subkey = InlineKeyboardButton(text=arr, callback_data='{'+'"name": "do_report_back", "value": "{}"'.format(keyboard_dict[arr]) + '}')
@@ -457,61 +496,28 @@ class Michael:
                 self.log.error("Could not generate keyboard. Data type error in arrangement: {}".format(arr))
         return keyboard
 
+    def check_user_ID(self, user, ID=None):
+        """
+        This function checks if the user who sended the message is a valid user.
+        :param message: The telegram message
+        :param ID: checks if the message was send from a specific ID (optional), can be int or list of int
+        :return: bool
+        """
+        senderID = user.id
+        name = user.first_name
+        username = user.username
+        lastname = user.last_name
 
+        if isinstance(ID, int):
+            ID = [ID]
 
-    def _extract_result(self, response):
-        """Each response must be a dictionary with only one entry {'result': whatever}
-        Whatever can again be whatever you want --> Dict, str, list etc. This should prevent data mismatch
-        And I know this isnt the best way to go. TODO: Make this better"""
-        return response.get("result", "Error: Non valid response layout transmitted from server.")
-
-    def report_to_owner(self, message, send_to=None):
-        ID = message['from']['id']
-        name = message['from'].get('first_name', "None")
-        username = message['from'].get('username', "None")
-        lastname = message['from'].get('last_name', "None")
-        send_to = send_to if isinstance(send_to, int) else self.config["SuperUser"][0]
-        self._send_telegram_message(send_to, "An unauthorized user tried sending me a message: \n\n" \
-                                                                 "ID: {} \n" \
-                                                                 "User Name: {} \n" \
-                                                                 "First Name: {} \n" \
-                                                                 "Last Name: {} \n" \
-                                                                 "Message: {}".format(ID, username, name, lastname,
-                                                                                      message))
-        self._send_telegram_message(ID, "You have written {}, but I do not recognise you or you are not authorized to do "
-                                        "this action. Your message will be deleted and forgotten. "
-                                        "I furthermore have reported this incident "
-                                        "to the Botfather. He will decide your fate!".format(self.name))
-
-    def do_reboot_callback(self, query_id, chat_id, value, query):
-        """Restarts the respberry"""
-        self.bot.answerCallbackQuery(query_id)
-        if value.lower() == 'no':
-            self._send_telegram_message(chat_id, "Aborted reboot")
+        self.log.info("Got message from ID: {} with name {} {} and username {}".format(senderID, name, lastname, username))
+        if senderID not in (self.config["Users"] if not ID else ID) or not self.SuperUser:
+            self.log.critical("User with ID: {} and name {} and username {}, was not recognised as valid user!".format(ID, name, username))
+            self.intruders[senderID] = user
+            return False
         else:
-            self._send_telegram_message(chat_id, "Reboot initiated")
-            try:
-                os.system("sudo /sbin/reboot -n&")
-                #os.kill(os.getpid(), signal.SIGINT)
-            except:
-                self._send_telegram_message(chat_id, "Reboot failed. Only works on LINUX machines")
-
-    def do_report_back_callback(self, query_id, chat_id, value, query):
-        """Reports the custom keyboard markup response to the client"""
-        self.bot.answerCallbackQuery(query_id)
-        response = self._send_message_to_underlings(value, chat_id)
-        if response:
-            return self._extract_result(response)
-
-    def do_get_IP_callback(self, ID, msg):
-        """Gets the IP of the machine and sends it to the user."""
-        try:
-            IP = get_ip()
-        except Exception as err:
-            IP = "ERROR: Could not obtain IP. ERRORCODE: {}".format(err)
-        finally:
-            self._send_telegram_message(ID, "The IP is {}:".format(IP))
-
+            return True
 
 
 if __name__ == "__main__":
